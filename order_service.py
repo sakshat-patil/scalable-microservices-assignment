@@ -10,11 +10,19 @@ def get_order(order_id):
     order = orders.get(order_id)
     if order:
         # Fetch user details from User Service
-        user_response = requests.get(f'http://localhost:5001/users/{order["user_id"]}')
+        try:
+            user_response = requests.get(f'http://localhost:5001/users/{order["user_id"]}', timeout=2)
+        except requests.RequestException:
+            # User service unreachable
+            return jsonify({"error": "User service unavailable"}), 502
 
         if user_response.status_code == 200:
-            order['user'] = user_response.json()
-            return jsonify(order)
+            # avoid mutating the stored order
+            result = order.copy()
+            result['user'] = user_response.json()
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Failed to fetch user details"}), 502
         
     else:
         return jsonify({"error": "Order not found"}), 404
